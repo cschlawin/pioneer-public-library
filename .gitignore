@@ -1,0 +1,13 @@
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Editor and IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# PHP sessions and logs
+*.log
+/tmp/

@@ -1,0 +1,32 @@
+{
+  "name": "Pioneer Public Library (PHP 8)",
+  "image": "mcr.microsoft.com/devcontainers/php:1-8.3-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug",
+        "ecodes.vscode-phpmd",
+        "ritwickdey.liveserver"
+      ],
+      "settings": {
+        "php.validate.executablePath": "/usr/local/bin/php",
+        "files.eol": "\n"
+      }
+    }
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "Pioneer Public Library",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    }
+  },
+  "postStartCommand": "nohup php -S 0.0.0.0:8000 > /tmp/php-server.log 2>&1 &",
+  "postAttachCommand": "php -v",
+  "remoteUser": "vscode"
+}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 200" role="img" aria-labelledby="ppl-cover-title">
+  <title id="ppl-cover-title">Book cover not available</title>
+  <rect x="0.75" y="0.75" width="138.5" height="198.5" rx="3" fill="#F4F4F2" stroke="#C9D1D3"/>
+  <!-- Spine shadow -->
+  <rect x="0.75" y="0.75" width="12" height="198.5" rx="3" fill="#E7E8E4"/>
+  <path d="M12.75 0.75v198.5" stroke="#C9D1D3"/>
+  <!-- Abstract open-book glyph -->
+  <g fill="none" stroke="#8a969b" stroke-width="2.4" stroke-linecap="round">
+    <path d="M40 84c10-4.5 20-4.5 30 0v32c-10-4.5-20-4.5-30 0V84z"/>
+    <path d="M70 84c10-4.5 20-4.5 30 0v32c-10-4.5-20-4.5-30 0V84z"/>
+    <path d="M70 84v32"/>
+  </g>
+  <text x="70" y="146" text-anchor="middle"
+        font-family="Arial, Helvetica, 'Liberation Sans', sans-serif"
+        font-size="10" font-style="italic" fill="#8a969b">Cover</text>
+</svg>
