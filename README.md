@@ -14,31 +14,20 @@ framework, no Composer, and no build step.
 
 ## Running it
 
-### In GitHub Codespaces (recommended)
-
-Open the repository, choose **Code → Codespaces → Create codespace on main**, and
-wait for the container to build. The dev container starts the PHP server on port
-8000 by itself and forwards it, so the site opens in a browser tab as soon as the
-container is ready.
-
-If the tab does not appear, run this in the Codespace terminal:
+From a terminal opened in the folder that contains `index.php` (in a GitHub
+Codespace, or locally with PHP 8.0 or newer installed), start PHP's built-in
+server:
 
 ```bash
 php -S 0.0.0.0:8000
 ```
 
-then open the forwarded port 8000 from the **Ports** panel.
+Then open the page you need by adding it to the address, for example
+`/index.php` for the home page or `/login.php` to sign in. In a Codespace, open
+the forwarded port 8000 from the **Ports** panel and add the page name to the
+end of the URL. Locally, use <http://localhost:8000/index.php>.
 
-### Locally
-
-```bash
-git clone https://github.com/cschlawin/pioneer-public-library.git
-cd pioneer-public-library
-php -S localhost:8000
-```
-
-Then open <http://localhost:8000/>. PHP 8.0 or newer is required, with nothing
-else to install or configure.
+There is no database, framework, or other software to install or configure.
 
 ### Demo accounts
 
@@ -82,7 +71,6 @@ pioneer-public-library/
   reset.php                 Restores the seeded demo tables, POST + CSRF
   phase2.php                Placeholder for Employees / Reports / Accounts, which are out of Phase 1 scope
   README.md                 This file
-  .devcontainer/            Codespaces container: PHP 8.3 image, port 8000 forwarded, server auto-started
 
   includes/
     header.php              Doctype, head, CSS link, and the site header in public or admin mode
