@@ -2,6 +2,8 @@
 /**
  * login.php - the sign-in page (WF 02).
  *
+ * It shows one generic error on a failed sign-in, so it never reveals whether the username or the password was wrong.
+ * 
  * A POST-only form. On success the session id is regenerated and the user is
  * sent on with a 303. On failure the page re-renders with exactly one generic
  * message that does not say which of the two values was wrong (FR 27).

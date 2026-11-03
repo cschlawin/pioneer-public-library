@@ -1,12 +1,15 @@
 <?php
 /**
  * index.php - the home page (WF 01).
- *
+ * **Top-level pages.** These are what a browser opens directly.
+ * `index.php` is the public home page (WF 01). Its catalog search really does read the inventory data and show availability.
+ * 
  * Public, no sign-in needed. It carries the catalog search that reads the
  * inventory table, so the page is a real use case rather than a static card
  * (the assignment note on the home page). The hero, the media-type tiles, the
  * Get started list, and the events panel are reproduced from WF 01.
  */
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/security/auth.php';

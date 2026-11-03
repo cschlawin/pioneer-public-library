@@ -1,10 +1,12 @@
 <?php
 /**
  * security/sanitize.php
- *
+ * 
+ * `sanitize.php` has `e()`, which escapes every value before it's printed so no one can inject code. 
+ * It also has all the form validators, like the email check.
+ * 
  * Output escaping, server-side validation, and the small display and form
- * helpers every view shares. Every dynamic value that reaches HTML is passed
- * through e().
+ * helpers every view shares. Every dynamic value that reaches HTML is passed through e().
  */
 declare(strict_types=1);
 

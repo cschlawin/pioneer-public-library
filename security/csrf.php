@@ -1,7 +1,8 @@
 <?php
 /**
  * security/csrf.php
- *
+ * 
+ * `csrf.php` creates and checks a hidden token on every form, so another site can't submit a form as you.
  * Per-session CSRF token. Every POST in this project calls csrf_check()
  * before it touches data.
  */

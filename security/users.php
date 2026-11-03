@@ -1,7 +1,8 @@
 <?php
 /**
  * security/users.php
- *
+ * `users.php` holds the two demo accounts as bcrypt password hashes only. The plaintext passwords aren't in the file.
+ * 
  * The demo accounts. Only password_hash() output is stored here; no plaintext
  * password appears in this file or any other (BR 14, FR 33).
  *

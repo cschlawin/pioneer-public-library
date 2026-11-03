@@ -1,7 +1,10 @@
 <?php
 /**
  * security/auth.php
- *
+ * 
+ * `auth.php` starts the session and sends the security headers. It also holds the sign-in check and the two gatekeepers: 
+ * `require_login()` and `require_admin()`. Every admin page calls `require_admin()` at the top, and that's why `pjones` gets a 403.
+ * 
  * Session start, sign-in and sign-out, the current user, and the two guards
  * every protected page uses: require_login() and require_admin() (FR 29).
  */
