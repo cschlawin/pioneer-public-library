@@ -1,7 +1,7 @@
 # Pioneer Public Library System
 
 IS 6465 Web Based Applications, University of Utah
-Team: Cody Schlawin, Cody Adamson, Jonas Nunn
+Group 1: Brandon Hilton, Andy Huo, Cody Schlawin
 
 Site source for the Pioneer Public Library System, a PHP web application. The
 repository root **is** the site root: `index.php` sits at the top level, so the
