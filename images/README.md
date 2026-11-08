@@ -18,3 +18,5 @@ markup change.
 Phase 1 draws the wordmark as text in the header, exactly as the wireframes
 show it. `logo.svg` exists for the footer and for any later page that wants the
 mark rather than the words.
+
+AI Disclosure: AI assisted with drafting, organizing, and revising project documentation, diagrams, and code. The team remains responsible for the accuracy, quality, originality, and compliance of the submitted work, including verification of AI-assisted content. Tools Used: ChatGPT, Claude, and xAI.
