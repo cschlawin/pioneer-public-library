@@ -3,7 +3,7 @@
  * tests/integration-tests.php
  *
  * CLI integration checks for the two CRUD sets against a throwaway copy of
- * the database (same idea as the Lab 6 tests/integration-tests.php):
+ * the database:
  *
  *     php tests/integration-tests.php
  *

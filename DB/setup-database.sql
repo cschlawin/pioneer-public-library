@@ -1,6 +1,6 @@
 -- DB/setup-database.sql
 -- Pioneer Public Library: schema and seed data for the two Phase 1 CRUD sets
--- (members UC 10-13, inventory UC 14-17). Same approach as Lab 6:
+-- (members UC 10-13, inventory UC 14-17). Build the database with:
 --
 --     sqlite3 DB/library.db < DB/setup-database.sql
 --

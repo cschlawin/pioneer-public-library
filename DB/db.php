@@ -2,9 +2,8 @@
 /**
  * DB/db.php
  *
- * One SQLite connection for the whole request, opened the same way as the
- * Lab 6 config/db.php: PDO with exceptions on, associative fetches, and
- * foreign keys enforced on every connection.
+ * One SQLite connection for the whole request, opened with PDO: exceptions
+ * on, associative fetches, and foreign keys enforced on every connection.
  *
  * The database file is DB/library.db. The router refuses to serve anything
  * under /DB/ and any *.db or *.sql file, so the file is never downloadable.
@@ -15,7 +14,7 @@ declare(strict_types=1);
 const DB_DEFAULT_PATH = __DIR__ . '/library.db';
 const DB_SETUP_SQL = __DIR__ . '/setup-database.sql';
 
-/** Open a PDO connection to a SQLite file (Lab 6 openDatabase pattern). */
+/** Open a PDO connection to a SQLite file (standard PDO setup). */
 function openDatabase(?string $path = null): PDO
 {
     if ($path === null) {

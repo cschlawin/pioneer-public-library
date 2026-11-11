@@ -2,7 +2,7 @@
 /**
  * router.php
  *
- * Router script for PHP's built-in server, same idea as the Lab 6 router:
+ * Router script for PHP's built-in server:
  *
  *     php -S 0.0.0.0:8000 router.php
  *
