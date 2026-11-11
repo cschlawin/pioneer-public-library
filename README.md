@@ -202,6 +202,12 @@ pioneer-public-library/
   js/
     site.js                 data-confirm prompts and the media-type field switch. No inline script anywhere
 
+  docs/
+    Phase1_ERD.pdf          The entity relationship diagram
+    diagrams/               Editable draw.io sources (not served by the router): erd.drawio,
+                            ad_04_check_out_item.drawio, ad_06_return_item.drawio,
+                            wf_20_check_out_item.drawio, wf_21_return_item.drawio
+
   tests/
     integration-tests.php   CLI tests for both CRUD sets and checkout/return on a temporary copy of the database
 ```

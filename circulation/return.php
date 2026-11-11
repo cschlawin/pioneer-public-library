@@ -44,9 +44,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         } catch (CheckoutRefused $refused) {
             $errors[$refused->field] = $refused->getMessage();
+        } catch (PDOException $failed) {
+            // The transaction was rolled back, so nothing was written.
+            error_log('return failed: ' . $failed->getMessage());
+            $errors['barcode'] = 'The return could not be saved, so nothing was written. Try again.';
+            $serverError = true;
         }
     }
-    http_response_code(422);
+    http_response_code(empty($serverError) ? 422 : 500);
 }
 
 $open = checkouts_open();
