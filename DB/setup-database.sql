@@ -4,7 +4,7 @@
 --
 --     sqlite3 DB/library.db < DB/setup-database.sql
 --
--- or, where the sqlite3 command is not installed (Codespaces):
+-- or, where the sqlite3 command is not installed:
 --
 --     php DB/setup.php
 --
