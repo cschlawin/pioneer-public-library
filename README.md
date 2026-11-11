@@ -11,7 +11,7 @@ Plain PHP 8, hand-written CSS, no framework, no Composer, and no build step.
 Members and inventory are stored in **SQLite** (`DB/library.db`) through PDO
 prepared statements. Sign-in still uses the two
 demo accounts in `security/users.php`; moving login to the database is planned
-for Phase 2, after Lecture 8.
+for Phase 2.
 
 ---
 
@@ -282,7 +282,7 @@ scheduled for Phase 2 and holds no data or action.
 Deliberately not built: employee management, the reports dashboard, account and
 role administration, password reset, the class list and signup, returns and
 fines, member profile editing, and moving login accounts into the database
-(planned after Lecture 8).
+(planned for Phase 2).
 
 ---
 
@@ -292,7 +292,7 @@ fines, member profile editing, and moving login accounts into the database
   one browser are visible in another. Use **Reset demo data** to go back to the
   seed.
 - Login still uses the two demo accounts in `security/users.php`, not a
-  database table, until the Phase 2 authentication work after Lecture 8.
+  database table, until the Phase 2 authentication work.
 - The catalog search on the home page reads the inventory table and shows
   availability, but **Add to cart** leads to the login page because checkout is
   a Phase 2 use case.
