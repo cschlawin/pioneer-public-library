@@ -1,187 +1,180 @@
 <?php
 /**
- * DB/inventory.php
+ * DB/members.php
  *
- * The inventory table: catalogue items plus their physical copies. Like the
- * members table it lives in the session for Phase 1, seeded from the rows
- * drawn in WF 06 and WF 08.
+ * The member table. There is no database in Phase 1, so the table lives in
+ * the session: the seed below is copied into $_SESSION['members'] on first
+ * use, and every read and write goes through the functions in this file.
+ * Swapping these functions for SQL in Phase 2 changes nothing in the views.
  *
- * Two rules shape this file:
- *   - Copy counts are never stored. They are derived from the copy records
- *     every time they are asked for (FR 22).
- *   - Deleting an item is a soft delete: the row is flagged and its copies
- *     stay, so checkout history stays complete (DR 14). It is refused
- *     outright while any copy is checked out (BR 07).
+ * Deactivation is a status change, never a row removal (BR 06, FR 20).
  */
 declare(strict_types=1);
 
 require_once __DIR__ . '/reference.php';
 
-const INVENTORY_SESSION_KEY = 'inventory';
-const INVENTORY_SEED_VERSION = 1;
-
-/** Build one copy record. */
-function inv_copy(string $id, string $barcode, string $condition, string $status): array
-{
-    return [
-        'id'        => $id,
-        'barcode'   => $barcode,
-        'condition' => $condition,
-        'status'    => $status,
-    ];
-}
+const MEMBERS_SESSION_KEY = 'members';
+const MEMBERS_SEED_VERSION = 1;
 
 /**
- * The seed rows, matching WF 06 row for row and WF 08 copy for copy.
- * The Overstory carries six copies: three available, two checked out, one
- * missing, which is exactly the table in WF 08.
+ * The seed rows. The first four are the rows drawn in WF 03 and the detail
+ * record in WF 05, reproduced field for field.
  */
-function inventory_seed(): array
+function member_seed(): array
 {
     return [
         [
-            'id'           => 'I-04412',
-            'media_type'   => 'book',
-            'title'        => 'The Overstory',
-            'creator'      => 'Richard Powers',
-            'publisher'    => 'W. W. Norton',
-            'publish_date' => '2018-04-03',
-            'genre'        => 'Literary fiction',
-            'isbn'         => '978-0393635522',
-            'deleted'      => false,
-            'copies'       => [
-                inv_copy('C-1', '30111 00482', 'good', 'available'),
-                inv_copy('C-2', '30111 00483', 'good', 'checked out'),
-                inv_copy('C-3', '30111 00484', 'fair', 'available'),
-                inv_copy('C-4', '30111 00485', 'good', 'available'),
-                inv_copy('C-5', '30111 00486', 'poor', 'missing'),
-                inv_copy('C-6', '30111 00487', 'good', 'checked out'),
+            'id'         => 'M-01045',
+            'first_name' => 'Thao',
+            'last_name'  => 'Nguyen',
+            'email'      => 't.nguyen@example.org',
+            'phone'      => '801-555-0142',
+            'street'     => '88 Emigration Ct',
+            'city'       => 'Salt Lake City',
+            'state'      => 'UT',
+            'zip'        => '84108',
+            'status'     => 'active',
+            'joined'     => '2021-03-04',
+            'balance'    => 0.00,
+            'checkouts'  => [
+                ['title' => 'The Overstory',  'out' => '2026-10-02', 'due' => '2026-11-01', 'status' => 'On loan'],
+                ['title' => 'Severance',      'out' => '2026-09-14', 'due' => '2026-10-14', 'status' => 'Returned'],
+                ['title' => 'Braiding Sweetgrass', 'out' => '2026-08-22', 'due' => '2026-09-21', 'status' => 'Returned'],
+                ['title' => 'Klara and the Sun',   'out' => '2026-07-09', 'due' => '2026-08-08', 'status' => 'Returned'],
+            ],
+            'fees' => [
+                ['title' => 'Severance',          'returned' => '2026-10-18', 'days_late' => 4, 'amount' => 4.00, 'status' => 'Paid'],
+                ['title' => 'Klara and the Sun',  'returned' => '2026-08-11', 'days_late' => 1, 'amount' => 1.00, 'status' => 'Paid'],
             ],
         ],
         [
-            'id'           => 'I-03881',
-            'media_type'   => 'film',
-            'title'        => 'Arrival',
-            'creator'      => 'Denis Villeneuve',
-            'publisher'    => '',
-            'publish_date' => '',
-            'genre'        => 'Science fiction',
-            'year'         => '2016',
-            'deleted'      => false,
-            'copies'       => [
-                inv_copy('C-1', '30111 00311', 'good', 'available'),
-                inv_copy('C-2', '30111 00312', 'good', 'checked out'),
+            'id'         => 'M-00778',
+            'first_name' => 'Daniel',
+            'last_name'  => 'Okafor',
+            'email'      => 'd.okafor@example.org',
+            'phone'      => '801-555-0187',
+            'street'     => '412 E 300 S',
+            'city'       => 'Salt Lake City',
+            'state'      => 'UT',
+            'zip'        => '84111',
+            'status'     => 'active',
+            'joined'     => '2019-08-19',
+            'balance'    => 4.50,
+            'checkouts'  => [
+                ['title' => 'Arrival',        'out' => '2026-10-11', 'due' => '2026-11-10', 'status' => 'On loan'],
+                ['title' => 'Blue Train',     'out' => '2026-08-30', 'due' => '2026-09-29', 'status' => 'Returned'],
+            ],
+            'fees' => [
+                ['title' => 'Blue Train', 'returned' => '2026-09-29', 'days_late' => 3, 'amount' => 4.50, 'status' => 'Unpaid'],
             ],
         ],
         [
-            'id'           => 'I-05102',
-            'media_type'   => 'music',
-            'title'        => 'Blue Train',
-            'creator'      => 'John Coltrane',
-            'publisher'    => '',
-            'publish_date' => '',
-            'genre'        => '',
-            'deleted'      => false,
-            'copies'       => [
-                inv_copy('C-1', '30111 00550', 'good', 'available'),
-                inv_copy('C-2', '30111 00551', 'good', 'available'),
-                inv_copy('C-3', '30111 00552', 'fair', 'available'),
+            'id'         => 'M-00312',
+            'first_name' => 'Renata',
+            'last_name'  => 'Silva',
+            'email'      => 'r.silva@example.org',
+            'phone'      => '801-555-0113',
+            'street'     => '77 Harvard Ave',
+            'city'       => 'Salt Lake City',
+            'state'      => 'UT',
+            'zip'        => '84102',
+            'status'     => 'inactive',
+            'joined'     => '2017-01-23',
+            'balance'    => 12.00,
+            'checkouts'  => [
+                ['title' => 'The Garden Party', 'out' => '2025-11-02', 'due' => '2025-12-02', 'status' => 'Returned'],
+            ],
+            'fees' => [
+                ['title' => 'The Garden Party', 'returned' => '2025-12-14', 'days_late' => 12, 'amount' => 12.00, 'status' => 'Unpaid'],
             ],
         ],
         [
-            'id'           => 'I-04477',
-            'media_type'   => 'periodical',
-            'title'        => 'Wired, Nov 2026',
-            'creator'      => '',
-            'publisher'    => '',
-            'publish_date' => '2026-11-01',
-            'genre'        => '',
-            'issue'        => 'November 2026',
-            'deleted'      => false,
-            'copies'       => [
-                inv_copy('C-1', '30111 00777', 'good', 'checked out'),
+            'id'         => 'M-00087',
+            'first_name' => 'Amy',
+            'last_name'  => 'Whitfield',
+            'email'      => 'a.whitfield@example.org',
+            'phone'      => '801-555-0155',
+            'street'     => '1901 S Windsor St',
+            'city'       => 'Salt Lake City',
+            'state'      => 'UT',
+            'zip'        => '84105',
+            'status'     => 'active',
+            'joined'     => '2015-06-08',
+            'balance'    => 0.00,
+            'checkouts'  => [
+                ['title' => 'Gardens of the Moon', 'out' => '2026-10-20', 'due' => '2026-11-19', 'status' => 'On loan'],
             ],
+            'fees' => [],
         ],
         [
-            'id'           => 'I-05220',
-            'media_type'   => 'audiobook',
-            'title'        => 'Braiding Sweetgrass',
-            'creator'      => 'Robin Wall Kimmerer',
-            'publisher'    => 'Milkweed Editions',
-            'publish_date' => '2013-09-01',
-            'genre'        => 'Nature writing',
-            'deleted'      => false,
-            'copies'       => [
-                inv_copy('C-1', '30111 00901', 'good', 'available'),
-                inv_copy('C-2', '30111 00902', 'new', 'checked out'),
-            ],
+            'id'         => 'M-01210',
+            'first_name' => 'Ellis',
+            'last_name'  => 'Brooks',
+            'email'      => 'e.brooks@example.org',
+            'phone'      => '801-555-0121',
+            'street'     => '350 N Center St',
+            'city'       => 'Lehi',
+            'state'      => 'UT',
+            'zip'        => '84043',
+            'status'     => 'active',
+            'joined'     => '2024-02-14',
+            'balance'    => 0.00,
+            'checkouts'  => [],
+            'fees'       => [],
         ],
         [
-            'id'           => 'I-04099',
-            'media_type'   => 'book',
-            'title'        => 'Klara and the Sun',
-            'creator'      => 'Kazuo Ishiguro',
-            'publisher'    => 'Knopf',
-            'publish_date' => '2021-03-02',
-            'genre'        => 'Literary fiction',
-            'isbn'         => '978-0593318171',
-            'deleted'      => false,
-            'copies'       => [
-                inv_copy('C-1', '30111 00810', 'good', 'available'),
-                inv_copy('C-2', '30111 00811', 'fair', 'missing'),
-            ],
-        ],
-        [
-            'id'           => 'I-03501',
-            'media_type'   => 'book',
-            'title'        => 'Severance',
-            'creator'      => 'Ling Ma',
-            'publisher'    => 'Farrar, Straus and Giroux',
-            'publish_date' => '2018-08-14',
-            'genre'        => 'Literary fiction',
-            'isbn'         => '978-0374261597',
-            'deleted'      => false,
-            'copies'       => [
-                inv_copy('C-1', '30111 00601', 'good', 'available'),
-            ],
+            'id'         => 'M-00566',
+            'first_name' => 'Luis',
+            'last_name'  => 'Ibarra',
+            'email'      => 'l.ibarra@example.org',
+            'phone'      => '801-555-0198',
+            'street'     => '620 W 400 N',
+            'city'       => 'Salt Lake City',
+            'state'      => 'UT',
+            'zip'        => '84116',
+            'status'     => 'inactive',
+            'joined'     => '2018-11-05',
+            'balance'    => 0.00,
+            'checkouts'  => [],
+            'fees'       => [],
         ],
     ];
 }
 
 /** Seed the session table on first use, or after a reset. */
-function inventory_boot(): void
+function members_boot(): void
 {
-    $current = $_SESSION[INVENTORY_SESSION_KEY] ?? null;
-    if (!is_array($current) || ($_SESSION['inventory_seed_version'] ?? 0) !== INVENTORY_SEED_VERSION) {
-        $_SESSION[INVENTORY_SESSION_KEY] = inventory_seed();
-        $_SESSION['inventory_seed_version'] = INVENTORY_SEED_VERSION;
+    $current = $_SESSION[MEMBERS_SESSION_KEY] ?? null;
+    if (!is_array($current) || ($_SESSION['members_seed_version'] ?? 0) !== MEMBERS_SEED_VERSION) {
+        $_SESSION[MEMBERS_SESSION_KEY] = member_seed();
+        $_SESSION['members_seed_version'] = MEMBERS_SEED_VERSION;
     }
 }
 
-/** Every item, including soft-deleted rows. Views filter. */
-function inventory_all(): array
+/** Every member row, in table order. */
+function members_all(): array
 {
-    inventory_boot();
-    return $_SESSION[INVENTORY_SESSION_KEY];
+    members_boot();
+    return $_SESSION[MEMBERS_SESSION_KEY];
 }
 
 /** Write the whole table back. */
-function inventory_write(array $rows): void
+function members_write(array $rows): void
 {
-    $_SESSION[INVENTORY_SESSION_KEY] = array_values($rows);
+    $_SESSION[MEMBERS_SESSION_KEY] = array_values($rows);
 }
 
 /** Restore the seed rows. Backs the footer's Reset demo data action. */
-function inventory_reset(): void
+function members_reset(): void
 {
-    $_SESSION[INVENTORY_SESSION_KEY] = inventory_seed();
-    $_SESSION['inventory_seed_version'] = INVENTORY_SEED_VERSION;
+    $_SESSION[MEMBERS_SESSION_KEY] = member_seed();
+    $_SESSION['members_seed_version'] = MEMBERS_SEED_VERSION;
 }
 
-/** One item by id, or null. Soft-deleted items are returned too. */
-function inventory_find(string $id): ?array
+/** One member by id, or null. */
+function member_find(string $id): ?array
 {
-    foreach (inventory_all() as $row) {
+    foreach (members_all() as $row) {
         if ($row['id'] === $id) {
             return $row;
         }
@@ -189,210 +182,147 @@ function inventory_find(string $id): ?array
     return null;
 }
 
-/**
- * Copy counts derived from the copy records (FR 22). Never stored.
- * Returns total, available, out, missing.
- */
-function inventory_counts(array $item): array
+/** "Nguyen, Thao", the form the member tables use. */
+function member_name(array $member): string
 {
-    $counts = ['total' => 0, 'available' => 0, 'out' => 0, 'missing' => 0];
-    foreach ($item['copies'] ?? [] as $copy) {
-        $counts['total']++;
-        match ($copy['status']) {
-            'available'   => $counts['available']++,
-            'checked out' => $counts['out']++,
-            'missing'     => $counts['missing']++,
-            default       => null,
-        };
-    }
-    return $counts;
+    return $member['last_name'] . ', ' . $member['first_name'];
 }
 
-/** True when at least one copy is checked out, which blocks deletion (BR 07). */
-function inventory_has_copy_out(array $item): bool
+/** "Thao Nguyen", the form the detail pages use in prose. */
+function member_name_plain(array $member): string
 {
-    foreach ($item['copies'] ?? [] as $copy) {
-        if ($copy['status'] === 'checked out') {
+    return $member['first_name'] . ' ' . $member['last_name'];
+}
+
+/** The next free member id, M-00001 numbering, never reused (DR 02). */
+function member_next_id(): string
+{
+    $highest = 0;
+    foreach (members_all() as $row) {
+        if (preg_match('/^M-(\d+)$/', (string) $row['id'], $m) === 1) {
+            $highest = max($highest, (int) $m[1]);
+        }
+    }
+    return 'M-' . str_pad((string) ($highest + 1), 5, '0', STR_PAD_LEFT);
+}
+
+/**
+ * True when the email already belongs to another member. The comparison is
+ * case-insensitive and ignores surrounding spaces (FR 18).
+ */
+function member_email_taken(string $email, ?string $except_id = null): bool
+{
+    $needle = mb_strtolower(trim($email));
+    if ($needle === '') {
+        return false;
+    }
+    foreach (members_all() as $row) {
+        if ($except_id !== null && $row['id'] === $except_id) {
+            continue;
+        }
+        if (mb_strtolower(trim((string) $row['email'])) === $needle) {
             return true;
         }
     }
     return false;
 }
 
-/** How many copies are checked out. Used in the refusal message. */
-function inventory_count_out(array $item): int
+/** Append a member. The caller validates first. Returns the stored row. */
+function member_insert(array $data): array
 {
-    $count = 0;
-    foreach ($item['copies'] ?? [] as $copy) {
-        if ($copy['status'] === 'checked out') {
-            $count++;
-        }
-    }
-    return $count;
-}
-
-/** The next free item id, I-00001 numbering. */
-function inventory_next_id(): string
-{
-    $highest = 0;
-    foreach (inventory_all() as $row) {
-        if (preg_match('/^I-(\d+)$/', (string) $row['id'], $m) === 1) {
-            $highest = max($highest, (int) $m[1]);
-        }
-    }
-    return 'I-' . str_pad((string) ($highest + 1), 5, '0', STR_PAD_LEFT);
-}
-
-/** The next barcode in the 30111 nnnnn series. */
-function inventory_next_barcode(): string
-{
-    $highest = 0;
-    foreach (inventory_all() as $row) {
-        foreach ($row['copies'] ?? [] as $copy) {
-            if (preg_match('/^30111 (\d{5})$/', (string) $copy['barcode'], $m) === 1) {
-                $highest = max($highest, (int) $m[1]);
-            }
-        }
-    }
-    return '30111 ' . str_pad((string) ($highest + 1), 5, '0', STR_PAD_LEFT);
-}
-
-/**
- * Insert an item and its copies. Every new copy starts Available (BR 08).
- * $data holds the descriptive fields; $copy_count is how many to create.
- */
-function inventory_insert(array $data, int $copy_count): array
-{
-    $rows = inventory_all();
-    $copies = [];
-    $barcode = inventory_next_barcode();
-    $number = (int) str_replace(' ', '', substr($barcode, 6));
-    for ($i = 1; $i <= $copy_count; $i++) {
-        $copies[] = inv_copy(
-            'C-' . $i,
-            '30111 ' . str_pad((string) $number, 5, '0', STR_PAD_LEFT),
-            'good',
-            'available'
-        );
-        $number++;
-    }
+    $rows = members_all();
     $row = [
-        'id'           => inventory_next_id(),
-        'media_type'   => $data['media_type'],
-        'title'        => $data['title'],
-        'creator'      => $data['creator'] ?? '',
-        'publisher'    => $data['publisher'] ?? '',
-        'publish_date' => $data['publish_date'] ?? '',
-        'genre'        => $data['genre'] ?? '',
-        'isbn'         => $data['isbn'] ?? '',
-        'issue'        => $data['issue'] ?? '',
-        'year'         => $data['year'] ?? '',
-        'deleted'      => false,
-        'copies'       => $copies,
+        'id'         => member_next_id(),
+        'first_name' => $data['first_name'],
+        'last_name'  => $data['last_name'],
+        'email'      => $data['email'],
+        'phone'      => $data['phone'],
+        'street'     => $data['street'],
+        'city'       => $data['city'],
+        'state'      => strtoupper($data['state']),
+        'zip'        => $data['zip'],
+        'status'     => 'active',
+        // Set on save and never edited afterwards (DR 02, WF 04).
+        'joined'     => date('Y-m-d'),
+        'balance'    => 0.00,
+        'checkouts'  => [],
+        'fees'       => [],
     ];
     $rows[] = $row;
-    inventory_write($rows);
+    members_write($rows);
     return $row;
 }
 
-/**
- * Update an item's descriptive fields and, optionally, its copies' condition
- * and status. The status dropdown never offers "checked out" (BR 08).
- */
-function inventory_update(string $id, array $data, ?array $copies = null): ?array
+/** Update the editable fields of one member. Id and joined date never change. */
+function member_update(string $id, array $data): ?array
 {
-    $rows = inventory_all();
+    $rows = members_all();
     $updated = null;
     foreach ($rows as $index => $row) {
         if ($row['id'] !== $id) {
             continue;
         }
-        $rows[$index]['title']        = $data['title'];
-        $rows[$index]['media_type']   = $data['media_type'];
-        $rows[$index]['creator']      = $data['creator'] ?? '';
-        $rows[$index]['publisher']    = $data['publisher'] ?? '';
-        $rows[$index]['publish_date'] = $data['publish_date'] ?? '';
-        $rows[$index]['genre']        = $data['genre'] ?? '';
-        $rows[$index]['isbn']         = $data['isbn'] ?? '';
-        $rows[$index]['issue']        = $data['issue'] ?? '';
-        $rows[$index]['year']         = $data['year'] ?? '';
-        if ($copies !== null) {
-            $rows[$index]['copies'] = $copies;
-        }
+        $rows[$index]['first_name'] = $data['first_name'];
+        $rows[$index]['last_name']  = $data['last_name'];
+        $rows[$index]['email']      = $data['email'];
+        $rows[$index]['phone']      = $data['phone'];
+        $rows[$index]['street']     = $data['street'];
+        $rows[$index]['city']       = $data['city'];
+        $rows[$index]['state']      = strtoupper($data['state']);
+        $rows[$index]['zip']        = $data['zip'];
         $updated = $rows[$index];
         break;
     }
     if ($updated !== null) {
-        inventory_write($rows);
+        members_write($rows);
     }
     return $updated;
 }
 
 /**
- * Soft-delete an item: flag it and keep every copy (DR 14).
- * Returns [ok, message]. Refused while any copy is checked out (BR 07).
+ * Set a member's status. Called by members/delete.php, which is a status
+ * change: the row and all of its history stay (BR 06).
  */
-function inventory_soft_delete(string $id): array
+function member_set_status(string $id, string $status): ?array
 {
-    $rows = inventory_all();
+    if (!array_key_exists($status, member_statuses())) {
+        return null;
+    }
+    $rows = members_all();
+    $updated = null;
     foreach ($rows as $index => $row) {
         if ($row['id'] !== $id) {
             continue;
         }
-        if ($row['deleted']) {
-            return [false, 'That item is already deleted.'];
-        }
-        $out = inventory_count_out($row);
-        if ($out > 0) {
-            $plural = $out === 1 ? 'copy is' : 'copies are';
-            return [false, 'This item cannot be deleted: ' . $out . ' ' . $plural
-                . ' checked out. Check the ' . ($out === 1 ? 'copy' : 'copies')
-                . ' in first. Delete is refused while a copy is out (BR 07).'];
-        }
-        $rows[$index]['deleted'] = true;
-        inventory_write($rows);
-        return [true, 'Deleted "' . $row['title'] . '". The record is flagged deleted and its '
-            . count($row['copies']) . ' copy record(s) are kept, so history stays complete (DR 14).'];
+        $rows[$index]['status'] = $status;
+        $updated = $rows[$index];
+        break;
     }
-    return [false, 'No item has that ID.'];
+    if ($updated !== null) {
+        members_write($rows);
+    }
+    return $updated;
 }
 
 /**
- * Server-side search and filters for WF 06. Filters combine: text search plus
- * media type plus copy status.
- * $filters: search, type ('all'), status ('all', 'available', 'out', 'missing')
+ * Server-side search and status filter for WF 03.
+ * $filters: search, status ('all' shows everything).
  */
-function inventory_search(array $filters): array
+function members_search(array $filters): array
 {
     $search = mb_strtolower(trim((string) ($filters['search'] ?? '')));
-    $type = (string) ($filters['type'] ?? 'all');
     $status = (string) ($filters['status'] ?? 'all');
     $out = [];
-    foreach (inventory_all() as $row) {
-        if (!empty($row['deleted'])) {
-            continue;
-        }
-        if ($type !== 'all' && $type !== '' && $row['media_type'] !== $type) {
+    foreach (members_all() as $row) {
+        if ($status !== 'all' && $status !== '' && $row['status'] !== $status) {
             continue;
         }
         if ($search !== '') {
             $haystack = mb_strtolower(
-                $row['id'] . ' ' . $row['title'] . ' ' . ($row['creator'] ?? '') . ' ' .
-                ($row['isbn'] ?? '') . ' ' . ($row['publisher'] ?? '')
+                $row['id'] . ' ' . $row['last_name'] . ' ' . $row['first_name'] . ' ' .
+                $row['email'] . ' ' . $row['phone']
             );
             if (!str_contains($haystack, $search)) {
-                continue;
-            }
-        }
-        if ($status !== 'all' && $status !== '') {
-            $counts = inventory_counts($row);
-            $matches = match ($status) {
-                'available' => $counts['available'] > 0,
-                'out'       => $counts['out'] > 0,
-                'missing'   => $counts['missing'] > 0,
-                default     => true,
-            };
-            if (!$matches) {
                 continue;
             }
         }
