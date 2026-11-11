@@ -9,7 +9,7 @@ project opens and runs without a nested folder.
 
 Plain PHP 8, hand-written CSS, no framework, no Composer, and no build step.
 Members and inventory are stored in **SQLite** (`DB/library.db`) through PDO
-prepared statements, following the Lab 6 pattern. Sign-in still uses the two
+prepared statements. Sign-in still uses the two
 demo accounts in `security/users.php`; moving login to the database is planned
 for Phase 2, after Lecture 8.
 
@@ -73,7 +73,7 @@ password, and no file compares a plaintext password (BR 14, FR 33).
 ## Database: where the data lives
 
 Members and inventory live in the SQLite file **`DB/library.db`**, which is
-committed to the repository already seeded (as in Lab 6). The schema and seed
+committed to the repository already seeded. The schema and seed
 rows are in `DB/setup-database.sql`:
 
 | Table | Holds | Notes |
@@ -90,8 +90,8 @@ are not created yet; the loan and fee history on a seeded member's detail page
 is a read-only fixture in `DB/members.php` until then.
 
 Every query lives in `DB/members.php` and `DB/inventory.php` and uses PDO
-prepared statements with `?` placeholders. `DB/db.php` opens the connection the
-Lab 6 way (`ERRMODE_EXCEPTION`, `FETCH_ASSOC`, `PRAGMA foreign_keys = ON`).
+prepared statements with `?` placeholders. `DB/db.php` opens the connection
+with `ERRMODE_EXCEPTION`, `FETCH_ASSOC`, and `PRAGMA foreign_keys = ON`.
 Writes that touch several rows, such as an item plus its copies, run in one
 transaction and roll back completely on any error. The page files call the same
 functions they did in Phase 1, so no view needed rewriting.
@@ -100,7 +100,7 @@ To rebuild the database from the SQL file:
 
 ```bash
 php DB/setup.php                                  # works anywhere PHP runs
-sqlite3 DB/library.db < DB/setup-database.sql     # Lab 6 command, if sqlite3 is installed
+sqlite3 DB/library.db < DB/setup-database.sql     # same result, if sqlite3 is installed
 ```
 
 `php DB/setup.php` deletes and recreates the file. The `sqlite3` command only
