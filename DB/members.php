@@ -15,51 +15,36 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/reference.php';
+require_once __DIR__ . '/checkouts.php';
 
 /**
- * Read-only loan and fee history for the seeded members, shown on WF 05.
+ * Read-only fee history for the seeded members, shown on WF 05.
  *
- * Checkouts, fees and payments are Phase 2 tables (they need Copy, Employee
- * and Account rows that do not exist yet), so the history drawn in the
- * wireframes stays a fixed fixture until then. New members have none. The
- * balance shown on the list is derived from the unpaid fees here.
+ * Loans come from the Checkout table (DB/checkouts.php). Fees and payments
+ * are a later step, so the fees drawn in the wireframes stay a fixed fixture
+ * until then. New members have none. The balance shown on the list is
+ * derived from the unpaid fees here.
  */
 function member_history_fixture(): array
 {
     return [
         'M-01045' => [
-            'checkouts' => [
-                ['title' => 'The Overstory', 'out' => '2026-10-02', 'due' => '2026-11-01', 'status' => 'On loan'],
-                ['title' => 'Severance', 'out' => '2026-09-14', 'due' => '2026-10-14', 'status' => 'Returned'],
-                ['title' => 'Braiding Sweetgrass', 'out' => '2026-08-22', 'due' => '2026-09-21', 'status' => 'Returned'],
-                ['title' => 'Klara and the Sun', 'out' => '2026-07-09', 'due' => '2026-08-08', 'status' => 'Returned'],
-            ],
             'fees' => [
                 ['title' => 'Severance', 'returned' => '2026-10-18', 'days_late' => 4, 'amount' => 4.00, 'status' => 'Paid'],
                 ['title' => 'Klara and the Sun', 'returned' => '2026-08-11', 'days_late' => 1, 'amount' => 1.00, 'status' => 'Paid'],
             ],
         ],
         'M-00778' => [
-            'checkouts' => [
-                ['title' => 'Arrival', 'out' => '2026-10-11', 'due' => '2026-11-10', 'status' => 'On loan'],
-                ['title' => 'Blue Train', 'out' => '2026-08-30', 'due' => '2026-09-29', 'status' => 'Returned'],
-            ],
             'fees' => [
-                ['title' => 'Blue Train', 'returned' => '2026-09-29', 'days_late' => 3, 'amount' => 4.50, 'status' => 'Unpaid'],
+                ['title' => 'Blue Train', 'returned' => '2026-10-02', 'days_late' => 3, 'amount' => 4.50, 'status' => 'Unpaid'],
             ],
         ],
         'M-00312' => [
-            'checkouts' => [
-                ['title' => 'The Garden Party', 'out' => '2025-11-02', 'due' => '2025-12-02', 'status' => 'Returned'],
-            ],
             'fees' => [
                 ['title' => 'The Garden Party', 'returned' => '2025-12-14', 'days_late' => 12, 'amount' => 12.00, 'status' => 'Unpaid'],
             ],
         ],
         'M-00087' => [
-            'checkouts' => [
-                ['title' => 'Gardens of the Moon', 'out' => '2026-10-20', 'due' => '2026-11-19', 'status' => 'On loan'],
-            ],
             'fees' => [
             ],
         ],
@@ -75,7 +60,7 @@ const MEMBER_SELECT = 'SELECT Member_ID AS id, FirstName AS first_name, LastName
 /** Turn a database row into the array shape the pages use. */
 function member_from_row(array $row): array
 {
-    $history = member_history_fixture()[$row['id']] ?? ['checkouts' => [], 'fees' => []];
+    $history = member_history_fixture()[$row['id']] ?? ['fees' => []];
     $balance = 0.0;
     foreach ($history['fees'] as $fee) {
         if (($fee['status'] ?? '') === 'Unpaid') {
@@ -83,7 +68,7 @@ function member_from_row(array $row): array
         }
     }
     $row['balance'] = $balance;
-    $row['checkouts'] = $history['checkouts'];
+    $row['checkouts'] = checkouts_for_member((string) $row['id']);
     $row['fees'] = $history['fees'];
     return $row;
 }
@@ -97,15 +82,18 @@ function members_all(): array
 
 /**
  * Restore the seeded members. Backs the footer's Reset demo data action.
- * Removes every member row, then re-runs the setup script, whose INSERT OR
- * IGNORE seed rows put the six seeded members back exactly as they were.
- * Inventory rows are left alone because their seed rows already exist.
+ * Removes every loan and member row, then re-runs the setup script, whose
+ * INSERT OR IGNORE seed rows put the six seeded members and the seeded loans
+ * back exactly as they were. Copy statuses are then lined up with the open
+ * loans. Inventory rows are left alone because their seed rows already exist.
  */
 function members_reset(): void
 {
     db_transaction(static function (PDO $pdo): void {
+        checkouts_clear($pdo);
         $pdo->exec('DELETE FROM Member');
         db_run_setup($pdo);
+        checkouts_sync_copy_status($pdo);
     });
 }
 

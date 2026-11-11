@@ -2,8 +2,9 @@
 /**
  * members/view.php - UC 12, member detail (WF 05).
  *
- * Shows the contact fields, the read-only checkout history and fees that stay
- * visible after deactivation (BR 06), and the Deactivate or Reactivate control.
+ * Shows the contact fields, the member's loans from the Checkout table and
+ * the fees, all of which stay visible after deactivation (BR 06), and the
+ * Deactivate or Reactivate control.
  * The control posts to members/delete.php; nothing changes on this GET.
  */
 declare(strict_types=1);
@@ -64,6 +65,9 @@ require __DIR__ . '/../includes/header.php';
   </div>
   <div class="actions">
     <a class="btn btn-primary" href="/members/edit.php?id=<?= e(rawurlencode($member['id'])) ?>">Edit member</a>
+    <?php if ($isActive): ?>
+      <a class="btn btn-secondary" href="/circulation/checkout.php?member_id=<?= e(rawurlencode($member['id'])) ?>">Check out to this member</a>
+    <?php endif; ?>
     <a class="btn btn-secondary" href="/members/list.php">Back to list</a>
   </div>
 </div>
@@ -117,17 +121,19 @@ require __DIR__ . '/../includes/header.php';
     <?php else: ?>
       <div class="table-wrap">
         <table class="data">
-          <caption class="sr-only">Checkout history for <?= e(member_name($member)) ?>: item, checkout date, due date, and status</caption>
+          <caption class="sr-only">Checkouts for <?= e(member_name($member)) ?>, current loans first: item, copy, checkout date, due date, return date, and status</caption>
           <thead>
-            <tr><th scope="col">Item</th><th scope="col">Out</th><th scope="col">Due</th><th scope="col">Status</th></tr>
+            <tr><th scope="col">Item</th><th scope="col">Copy</th><th scope="col">Out</th><th scope="col">Due</th><th scope="col">Returned</th><th scope="col">Status</th></tr>
           </thead>
           <tbody>
             <?php foreach ($member['checkouts'] as $loan): ?>
               <tr>
                 <td><?= e($loan['title']) ?></td>
+                <td><?= e($loan['copy_label']) ?> &middot; <?= e($loan['barcode']) ?></td>
                 <td><?= e(date_mmdd((string) $loan['out'])) ?></td>
                 <td><?= e(date_mmdd((string) $loan['due'])) ?></td>
-                <td><?= e($loan['status']) ?></td>
+                <td><?= $loan['returned'] === null ? '&mdash;' : e(date_mmdd((string) $loan['returned'])) ?></td>
+                <td><span class="badge <?= e(loan_badge_class($loan)) ?>"><?= e($loan['status']) ?></span></td>
               </tr>
             <?php endforeach; ?>
           </tbody>

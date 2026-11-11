@@ -16,7 +16,7 @@ declare(strict_types=1);
   <div class="wrap footer-inner">
     <div class="footer-brand">
       <p class="footer-title">Pioneer Public Library System</p>
-      <p class="footer-note">IS 6465 Web Based Applications · Phase 1 · Members and inventory are stored in SQLite (DB/library.db).</p>
+      <p class="footer-note">IS 6465 Web Based Applications · Phase 1 · Members, inventory and checkouts are stored in SQLite (DB/library.db).</p>
     </div>
     <form class="footer-reset" action="/reset.php" method="post">
       <?= csrf_field() ?>

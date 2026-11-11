@@ -8,8 +8,9 @@ repository root **is** the site root: `index.php` sits at the top level, so the
 project opens and runs without a nested folder.
 
 Plain PHP 8, hand-written CSS, no framework, no Composer, and no build step.
-Members and inventory are stored in **SQLite** (`DB/library.db`) through PDO
-prepared statements. Sign-in still uses the two
+Members, inventory, and checkouts are stored in **SQLite** (`DB/library.db`)
+through PDO prepared statements. Staff check copies out and record returns at
+the circulation desk pages. Sign-in still uses the two
 demo accounts in `security/users.php`; moving login to the database is planned
 for Phase 2.
 
@@ -53,7 +54,7 @@ downloaded. Real pages and assets are served normally.
 
 ### Demo accounts
 
-These are the instructor-required test users for this project.
+These are the required test users for this project.
 
 | Username | Password | Role | Display name |
 |---|---|---|---|
@@ -72,7 +73,7 @@ password, and no file compares a plaintext password (BR 14, FR 33).
 
 ## Database: where the data lives
 
-Members and inventory live in the SQLite file **`DB/library.db`**, which is
+Members, inventory, and checkouts live in the SQLite file **`DB/library.db`**, which is
 committed to the repository already seeded. The schema and seed
 rows are in `DB/setup-database.sql`:
 
@@ -82,18 +83,24 @@ rows are in `DB/setup-database.sql`:
 | `Item` | One row per title | `Item_Type` picks the subtype; `Is_Deleted` is the soft delete (DR 14) |
 | `Book`, `Music`, `Film`, `Periodical`, `Audiobook` | The descriptive fields for each media type | Keyed on `Item_ID`, as in the ERD |
 | `Copy` | One row per physical copy | `Copy_Status` is `available`, `checked out`, or `missing` (BR 08); `Barcode` is unique |
+| `Checkout` | One row per loan of one copy (DR 06) | `Check_Num` is `L-#####`; `Check_In_Date` is empty while the copy is out; a partial unique index allows at most one open loan per copy (BR 04); due date is 30 days after checkout (BR 01) |
 
 `Member_ID` and `Item_ID` keep the `M-01045` / `I-04412` form the wireframes
 show, and the seed rows are the same members, items and copies the Phase 1
-pages always had. Accounts, checkouts, fees and payments are Phase 2 tables and
-are not created yet; the loan and fee history on a seeded member's detail page
-is a read-only fixture in `DB/members.php` until then.
+pages always had. The seeded loans match the copies the seed marks checked
+out and the history drawn on WF 05. `Checkout_Emp_ID` and `Checkin_Emp_ID`
+record the staff account's username until an Employee table exists. Accounts,
+employees, fees and payments are not created yet; the fees on a seeded
+member's detail page are a read-only fixture in `DB/members.php` until fees are
+built.
 
-Every query lives in `DB/members.php` and `DB/inventory.php` and uses PDO
+Every query lives in `DB/members.php`, `DB/inventory.php` and
+`DB/checkouts.php` and uses PDO
 prepared statements with `?` placeholders. `DB/db.php` opens the connection
 with `ERRMODE_EXCEPTION`, `FETCH_ASSOC`, and `PRAGMA foreign_keys = ON`.
-Writes that touch several rows, such as an item plus its copies, run in one
-transaction and roll back completely on any error. The page files call the same
+Writes that touch several rows, such as an item plus its copies, or a loan
+plus its copy status, run in one transaction and roll back completely on any
+error. The page files call the same
 functions they did in Phase 1, so no view needed rewriting.
 
 To rebuild the database from the SQL file:
@@ -107,8 +114,8 @@ sqlite3 DB/library.db < DB/setup-database.sql     # same result, if sqlite3 is i
 adds what is missing, because every `CREATE` is `IF NOT EXISTS` and every seed
 row is `INSERT OR IGNORE`; delete `DB/library.db` first for a clean rebuild.
 
-The **Reset demo data** button in the footer reseeds the member and inventory
-tables. It is a POST with a CSRF token, so a link or a prefetch can never wipe
+The **Reset demo data** button in the footer reseeds the member, inventory and
+checkout tables. It is a POST with a CSRF token, so a link or a prefetch can never wipe
 the data. Sessions are still used, but only for sign-in, CSRF tokens and flash
 messages; no record data is kept in `$_SESSION` any more.
 
@@ -123,7 +130,11 @@ The integration tests build a temporary database from `DB/setup-database.sql`
 for both CRUD sets: member deactivation (BR 06), duplicate email (FR 18), soft
 delete and its refusal while a copy is checked out (BR 07, DR 14), the
 checked-out status rule and invalid copy statuses (BR 08), transaction
-rollback, foreign keys, and reset.
+rollback, foreign keys, and reset. For checkout and return they cover the
+30-day due date (BR 01), every refusal (inactive member, fees at or above
+$10.00, unknown barcode, copy already out or missing, deleted item, return with
+no open loan), rollback of a failed checkout and a failed return, the one
+open loan per copy index, and late days on a late return.
 
 ---
 
@@ -134,7 +145,7 @@ pioneer-public-library/
   index.php                 Home page: hero, catalog search over inventory, media tiles, get started, events (WF 01)
   login.php                 Staff sign-in, POST-only, one generic failure message (WF 02)
   logout.php                Destroys the session (FR 28)
-  reset.php                 Reseeds the member and inventory tables, POST + CSRF
+  reset.php                 Reseeds the member, inventory and checkout tables, POST + CSRF
   router.php                Router for php -S: blocks DB/, *.db, *.sql, *.md, tests/, traversal
   phase2.php                Placeholder for Employees / Reports / Accounts, which are out of Phase 1 scope
   README.md                 This file
@@ -158,6 +169,7 @@ pioneer-public-library/
     db.php                  openDatabase() and db(): the PDO connection, plus db_transaction()
     members.php             Member queries: find, insert, update, set status, search, email check, reset
     inventory.php           Item, subtype and copy queries: find, derived copy counts, insert, update, soft delete, search, reset
+    checkouts.php           Checkout and return: loan lookups, checkout_create(), checkout_return(), the loan rules
     reference.php           Media types, copy conditions, copy statuses, member statuses
 
   members/
@@ -174,6 +186,10 @@ pioneer-public-library/
     edit.php                UC 17  Update an item and its copies (WF 08, edit state)
     delete.php              UC 17  Soft delete. POST only; refused while a copy is checked out
 
+  circulation/
+    checkout.php            UC 04  Check out an item at the staff desk (WF 20)
+    return.php              UC 06  Return an item at the staff desk (WF 21)
+
   images/
     logo.svg                Wordmark with the book mark
     placeholder-cover.svg   Neutral catalogue cover tile
@@ -186,8 +202,14 @@ pioneer-public-library/
   js/
     site.js                 data-confirm prompts and the media-type field switch. No inline script anywhere
 
+  docs/
+    Phase1_ERD.pdf          The entity relationship diagram
+    diagrams/               Editable draw.io sources (not served by the router): erd.drawio,
+                            ad_04_check_out_item.drawio, ad_06_return_item.drawio,
+                            wf_20_check_out_item.drawio, wf_21_return_item.drawio
+
   tests/
-    integration-tests.php   CLI tests for both CRUD sets on a temporary copy of the database
+    integration-tests.php   CLI tests for both CRUD sets and checkout/return on a temporary copy of the database
 ```
 
 ---
@@ -200,7 +222,7 @@ pioneer-public-library/
 |---|---|---|---|---|
 | UC 10 | View and search members | `members/list.php` | FR 17 | Server-side search over last name, first name, email, phone, and member ID, plus an Active / Inactive / All filter. Every row carries Edit and Deactivate (or Reactivate). |
 | UC 11 | Add member | `members/add.php` | FR 18 | Validates all eight fields on the server, checks email shape with `FILTER_VALIDATE_EMAIL` and uniqueness case-insensitively across the whole table, assigns the next `M-#####` ID and today's date on save. |
-| UC 12 | View member detail | `members/view.php` | FR 19 | Contact fields read-only, checkout history and fees, unpaid balance, and the Deactivate control. |
+| UC 12 | View member detail | `members/view.php` | FR 19 | Contact fields read-only, current and past loans from the `Checkout` table, fees, unpaid balance, and the Deactivate control. |
 | UC 13 | Update / deactivate | `members/edit.php`, `members/delete.php` | FR 19, FR 20 | Edit changes contact fields only; member ID and start date are read-only (DR 02). Deactivate flips status to inactive and **keeps the row and all history** (BR 06). |
 
 ### Set 2 — Inventory management (UC 14–UC 17, 3 pts)
@@ -212,13 +234,24 @@ pioneer-public-library/
 | UC 16 | View item detail | `inventory/view.php` | FR 23 | Descriptive fields, derived counts, the copy table, and the Delete control. |
 | UC 17 | Update / delete item | `inventory/edit.php`, `inventory/delete.php` | FR 23, FR 24 | Edit changes descriptive fields and each copy's condition and status. Delete is a **soft delete**: flagged deleted, copies kept (DR 14), and **refused while any copy is checked out** (BR 07). |
 
+### Circulation — Checkout and return at the staff desk (UC 04, UC 06)
+
+| UC | Use case | File | Requirement | What the code does |
+|---|---|---|---|---|
+| UC 04 | Check out an item | `circulation/checkout.php` | FR 06, FR 07, FR 08 | Staff choose the member and scan the barcode. One transaction writes the loan (due in 30 days, BR 01) and marks the copy checked out. Refused for an inactive member (BR 05), unpaid fees of $10.00 or more (BR 03), an unknown barcode, a copy that is not available (BR 04), or a deleted item. |
+| UC 06 | Return an item | `circulation/return.php` | FR 10 | Staff scan the barcode. One transaction records the check-in date and makes the copy available again. Refused when the copy has no open loan. Shows days late; the late fee itself (BR 02, FR 11) is a later step. |
+
+Both pages are admin-only (`require_admin()`, BR 10) and appear in the admin
+navigation as **Check out** and **Return**.
+
 ---
 
 ## Behaviour the markers should check
 
 **Every mutation is POST-only with a CSRF token.** `members/add.php`,
 `members/edit.php`, `members/delete.php`, `inventory/add.php`,
-`inventory/edit.php`, `inventory/delete.php`, and `reset.php` all call
+`inventory/edit.php`, `inventory/delete.php`, `circulation/checkout.php`,
+`circulation/return.php`, and `reset.php` all call
 `csrf_check()`. A GET on either delete handler returns **405 Method Not
 Allowed**, so a link, a prefetch, or a crawler cannot change anything. After a
 successful mutation the handler sets a flash message and redirects with **303**,
@@ -271,18 +304,19 @@ messages are tied to their field with `aria-describedby` and the field gets
 
 ## Scope note
 
-Phase 1 grades the home page, the login page, and two CRUD sets. Nothing else
-was built.
+Phase 1 covers the home page, the login page, and two CRUD sets. Checkout and
+return at the staff desk (UC 04, UC 06) were added on top of that.
 
-The approved navigation design lists six admin labels, so the header keeps all
-six. **Members** and **Inventory** are real, working pages. **Employees**,
-**Reports**, and **Accounts** point to `phase2.php`, which says the screen is
-scheduled for Phase 2 and holds no data or action.
+The admin header lists Members, Inventory, Check out, Return, Employees,
+Reports and Accounts. **Members**, **Inventory**, **Check out** and **Return**
+are real, working pages. **Employees**, **Reports**, and **Accounts** point to
+`phase2.php`, which says the screen is scheduled for Phase 2 and holds no data
+or action.
 
 Deliberately not built: employee management, the reports dashboard, account and
-role administration, password reset, the class list and signup, returns and
-fines, member profile editing, and moving login accounts into the database
-(planned for Phase 2).
+role administration, password reset, the class list and signup, the member
+cart, fines and payments, member profile editing, and moving login accounts
+into the database (planned for Phase 2).
 
 ---
 
@@ -294,8 +328,9 @@ fines, member profile editing, and moving login accounts into the database
 - Login still uses the two demo accounts in `security/users.php`, not a
   database table, until the Phase 2 authentication work.
 - The catalog search on the home page reads the inventory table and shows
-  availability, but **Add to cart** leads to the login page because checkout is
-  a Phase 2 use case.
+  availability, but **Add to cart** leads to the login page because the member
+  self-service cart is a Phase 2 use case. Staff check items out at
+  **Check out**.
 - `php -S` is single-threaded; it is a development server, not a deployment
   target.
 

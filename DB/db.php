@@ -47,10 +47,20 @@ function db(): PDO
     $path = db_path();
     $fresh = !is_file($path) || filesize($path) === 0;
     $pdo = openDatabase($path);
-    if ($fresh) {
+    if ($fresh || !db_has_table($pdo, 'Checkout')) {
+        // New file, or a file built before the Checkout table existed. Setup
+        // only creates what is missing and only inserts missing seed rows.
         db_run_setup($pdo);
     }
     return $pdo;
+}
+
+/** True when the database already has a table with this name. */
+function db_has_table(PDO $pdo, string $table): bool
+{
+    $stmt = $pdo->prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?");
+    $stmt->execute([$table]);
+    return (bool) $stmt->fetchColumn();
 }
 
 /**

@@ -4,8 +4,9 @@
  *
  * The doctype, head, and site header. Two header modes:
  *   $layout = 'admin'  - the staff bar: wordmark, Admin label, Members,
- *                        Inventory, Employees, Reports, Accounts, sign out,
- *                        and the avatar with the user's initials.
+ *                        Inventory, Check out, Return, Employees, Reports,
+ *                        Accounts, sign out, and the avatar with the user's
+ *                        initials.
  *   $layout = 'public' - the public bar: wordmark, Catalog, Events, Classes,
  *                        My Account, the catalog search, and Sign in.
  *
@@ -39,6 +40,8 @@ $user       = current_user();
         <?php foreach ([
             'Members'   => '/members/list.php',
             'Inventory' => '/inventory/list.php',
+            'Check out' => '/circulation/checkout.php',
+            'Return'    => '/circulation/return.php',
             'Employees' => '/phase2.php?screen=Employees',
             'Reports'   => '/phase2.php?screen=Reports',
             'Accounts'  => '/phase2.php?screen=Accounts',

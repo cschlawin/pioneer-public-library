@@ -714,10 +714,28 @@ table.data tfoot td {
   color: var(--green);
 }
 
-.badge-status-checked out {
+.badge-status-checked {
   background: #FDF3E7;
   border-color: #B26A00;
   color: #8a5200;
+}
+
+.badge-loan-open {
+  background: #FDF3E7;
+  border-color: #B26A00;
+  color: #8a5200;
+}
+
+.badge-loan-overdue {
+  background: var(--red-tint);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.badge-loan-returned {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--muted);
 }
 
 .badge-status-missing {

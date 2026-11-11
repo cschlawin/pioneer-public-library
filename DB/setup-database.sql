@@ -1,6 +1,7 @@
 -- DB/setup-database.sql
--- Pioneer Public Library: schema and seed data for the two Phase 1 CRUD sets
--- (members UC 10-13, inventory UC 14-17). Build the database with:
+-- Pioneer Public Library: schema and seed data for member management
+-- (UC 10-13), inventory management (UC 14-17), and checkout and return at the
+-- staff desk (UC 04, UC 06). Build the database with:
 --
 --     sqlite3 DB/library.db < DB/setup-database.sql
 --
@@ -9,14 +10,17 @@
 --     php DB/setup.php
 --
 -- Table and column names follow the Phase 1 ERD (Member, Item, the five
--- media subtypes keyed on Item_ID, Copy). Differences from the ERD, kept
--- small on purpose:
+-- media subtypes keyed on Item_ID, Copy, Checkout). Differences from the
+-- ERD, kept small on purpose:
 --   * Member_ID and Item_ID are TEXT ('M-01045', 'I-04412') so the IDs the
 --     pages, wireframes and screenshots show stay the same.
 --   * Item carries Is_Deleted for the soft delete (DR 14).
 --   * Book carries ISBN, which the add/edit forms collect.
 --   * Copy carries Copy_Label ('C-1') and Barcode, which WF 08 shows.
--- Login accounts, checkouts, fees and payments are Phase 2 tables and are
+--   * Checkout.Check_Num is TEXT ('L-00005'). Checkout_Emp_ID and
+--     Checkin_Emp_ID hold the staff account's username until the Employee
+--     table exists, so they carry no foreign key yet.
+-- Login accounts, employees, fees and payments are Phase 2 tables and are
 -- not created here.
 --
 -- Every CREATE is IF NOT EXISTS and every seed row is INSERT OR IGNORE, so
@@ -103,6 +107,28 @@ CREATE TABLE IF NOT EXISTS Copy (
 
 CREATE INDEX IF NOT EXISTS idx_copy_item ON Copy (Item_ID);
 
+-- One row per loan of one copy (DR 06). Check_In_Date stays NULL while the
+-- copy is out. The due date is 30 calendar days after checkout (BR 01).
+CREATE TABLE IF NOT EXISTS Checkout (
+    Check_Num       TEXT PRIMARY KEY CHECK (Check_Num GLOB 'L-[0-9][0-9][0-9][0-9][0-9]'),
+    Copy_ID         INTEGER NOT NULL REFERENCES Copy (Copy_ID),
+    Member_ID       TEXT NOT NULL REFERENCES Member (Member_ID),
+    Checkout_Emp_ID TEXT NOT NULL,
+    Checkin_Emp_ID  TEXT,
+    Check_Out_Date  TEXT NOT NULL CHECK (Check_Out_Date = date(Check_Out_Date)),
+    Check_Due_Date  TEXT NOT NULL CHECK (Check_Due_Date = date(Check_Due_Date)
+                                         AND Check_Due_Date >= Check_Out_Date),
+    Check_In_Date   TEXT CHECK (Check_In_Date IS NULL
+                                OR (Check_In_Date = date(Check_In_Date)
+                                    AND Check_In_Date >= Check_Out_Date)),
+    CHECK ((Check_In_Date IS NULL) = (Checkin_Emp_ID IS NULL))
+);
+
+-- A copy can be on at most one open loan at a time (BR 04).
+CREATE UNIQUE INDEX IF NOT EXISTS ux_checkout_open_copy ON Checkout (Copy_ID)
+    WHERE Check_In_Date IS NULL;
+CREATE INDEX IF NOT EXISTS idx_checkout_member ON Checkout (Member_ID);
+
 -- Members: the WF 03 / WF 05 seed rows, same IDs as the Phase 1 pages.
 INSERT OR IGNORE INTO Member (Member_ID, FirstName, LastName, Email, Phone, Street, City, State, ZIP, Start_Date, Member_Status) VALUES ('M-01045', 'Thao', 'Nguyen', 't.nguyen@example.org', '801-555-0142', '88 Emigration Ct', 'Salt Lake City', 'UT', '84108', '2021-03-04', 'active');
 INSERT OR IGNORE INTO Member (Member_ID, FirstName, LastName, Email, Phone, Street, City, State, ZIP, Start_Date, Member_Status) VALUES ('M-00778', 'Daniel', 'Okafor', 'd.okafor@example.org', '801-555-0187', '412 E 300 S', 'Salt Lake City', 'UT', '84111', '2019-08-19', 'active');
@@ -149,3 +175,15 @@ INSERT OR IGNORE INTO Copy (Copy_ID, Item_ID, Copy_Label, Barcode, Copy_Conditio
 INSERT OR IGNORE INTO Item (Item_ID, Item_Type, Item_Condition, Is_Deleted) VALUES ('I-03501', 'book', 'good', 0);
 INSERT OR IGNORE INTO Book (Item_ID, Book_Title, Author_Name, Publisher, Publish_Date, Genre, ISBN) VALUES ('I-03501', 'Severance', 'Ling Ma', 'Farrar, Straus and Giroux', '2018-08-14', 'Literary fiction', '978-0374261597');
 INSERT OR IGNORE INTO Copy (Copy_ID, Item_ID, Copy_Label, Barcode, Copy_Condition, Copy_Status) VALUES (17, 'I-03501', 'C-1', '30111 00601', 'good', 'available');
+
+-- Checkouts: returned loans behind the WF 05 history and one open loan for
+-- every copy the inventory seed marks checked out.
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00001', 15, 'M-01045', 'bsmith', 'bsmith', '2026-07-09', '2026-08-08', '2026-08-11');
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00002', 13, 'M-01045', 'bsmith', 'bsmith', '2026-08-22', '2026-09-21', '2026-09-19');
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00003', 9, 'M-00778', 'bsmith', 'bsmith', '2026-08-30', '2026-09-29', '2026-10-02');
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00004', 17, 'M-01045', 'bsmith', 'bsmith', '2026-09-14', '2026-10-14', '2026-10-18');
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00005', 2, 'M-01045', 'bsmith', NULL, '2026-10-02', '2026-11-01', NULL);
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00006', 8, 'M-00778', 'bsmith', NULL, '2026-10-11', '2026-11-10', NULL);
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00007', 12, 'M-00087', 'bsmith', NULL, '2026-10-20', '2026-11-19', NULL);
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00008', 6, 'M-01210', 'bsmith', NULL, '2026-10-25', '2026-11-24', NULL);
+INSERT OR IGNORE INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Checkin_Emp_ID, Check_Out_Date, Check_Due_Date, Check_In_Date) VALUES ('L-00009', 14, 'M-00087', 'bsmith', NULL, '2026-11-03', '2026-12-03', NULL);

@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/reference.php';
+require_once __DIR__ . '/checkouts.php';
 
 /** The five subtype tables, by media type key. */
 const INVENTORY_SUBTYPES = [
@@ -102,19 +103,21 @@ function inventory_all(): array
 
 /**
  * Restore the seeded inventory. Backs the footer's Reset demo data action.
- * Removes every copy, subtype and item row, then re-runs the setup script,
- * whose INSERT OR IGNORE seed rows put the seven seeded items and their
- * seventeen copies back. Member rows are left alone.
+ * Removes every loan, copy, subtype and item row, then re-runs the setup
+ * script, whose INSERT OR IGNORE seed rows put the seven seeded items, their
+ * seventeen copies and the seeded loans back. Member rows are left alone.
  */
 function inventory_reset(): void
 {
     db_transaction(static function (PDO $pdo): void {
+        checkouts_clear($pdo);
         $pdo->exec('DELETE FROM Copy');
         foreach (INVENTORY_SUBTYPES as $table) {
             $pdo->exec('DELETE FROM ' . $table);
         }
         $pdo->exec('DELETE FROM Item');
         db_run_setup($pdo);
+        checkouts_sync_copy_status($pdo);
     });
 }
 
