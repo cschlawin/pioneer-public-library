@@ -2,8 +2,8 @@
 /**
  * reset.php
  *
- * Restores the seeded demo tables. POST only, with a CSRF token, so a plain
- * link or a prefetch can never wipe the session's data.
+ * Reseeds the member and inventory tables in DB/library.db. POST only, with a
+ * CSRF token, so a plain link or a prefetch can never wipe the data.
  */
 declare(strict_types=1);
 

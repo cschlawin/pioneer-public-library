@@ -7,8 +7,11 @@ Site source for the Pioneer Public Library System, a PHP web application. The
 repository root **is** the site root: `index.php` sits at the top level, so the
 project opens and runs without a nested folder.
 
-Phase 1 coding artifact. Plain PHP 8, hand-written CSS, **no database**, no
-framework, no Composer, and no build step.
+Plain PHP 8, hand-written CSS, no framework, no Composer, and no build step.
+Members and inventory are stored in **SQLite** (`DB/library.db`) through PDO
+prepared statements, following the Lab 6 pattern. Sign-in still uses the two
+demo accounts in `security/users.php`; moving login to the database is planned
+for Phase 2, after Lecture 8.
 
 ---
 
@@ -19,12 +22,14 @@ framework, no Composer, and no build step.
 Open the repository, choose **Code → Codespaces → Create codespace on main**, and
 wait for the container to build. The dev container starts the PHP server on port
 8000 by itself and forwards it, so the site opens in a browser tab as soon as the
-container is ready.
+container is ready. On start it runs `php DB/setup.php --if-missing`, which
+builds `DB/library.db` only if the file is missing (it is committed, so normally
+nothing happens).
 
 If the tab does not appear, run this in the Codespace terminal:
 
 ```bash
-php -S 0.0.0.0:8000
+php -S 0.0.0.0:8000 router.php
 ```
 
 then open the forwarded port 8000 from the **Ports** panel.
@@ -34,11 +39,17 @@ then open the forwarded port 8000 from the **Ports** panel.
 ```bash
 git clone https://github.com/cschlawin/pioneer-public-library.git
 cd pioneer-public-library
-php -S localhost:8000
+php -S localhost:8000 router.php
 ```
 
-Then open <http://localhost:8000/>. PHP 8.0 or newer is required, with nothing
-else to install or configure.
+Then open <http://localhost:8000/>. PHP 8.0 or newer with the `pdo_sqlite`
+extension is required (`php -m | grep pdo_sqlite`); the official PHP images and
+the Codespaces container include it.
+
+Always start the server with `router.php`. The router returns 404 for the
+`DB/` folder, `*.db`, `*.sql` and `*.md` files, `tests/`, `security/`,
+`includes/`, dotfiles, and path traversal, so the database file can never be
+downloaded. Real pages and assets are served normally.
 
 ### Demo accounts
 
@@ -59,16 +70,60 @@ password, and no file compares a plaintext password (BR 14, FR 33).
 
 ---
 
-## No database: where the data lives
+## Database: where the data lives
 
-Persistence is **PHP sessions over arrays**. On first use, `DB/members.php` and
-`DB/inventory.php` copy their seed arrays into `$_SESSION`. Every read and write
-goes through the functions in those two files, so replacing them with SQL in
-Phase 2 changes the data layer only — no view has to be touched.
+Members and inventory live in the SQLite file **`DB/library.db`**, which is
+committed to the repository already seeded (as in Lab 6). The schema and seed
+rows are in `DB/setup-database.sql`:
 
-Data survives page navigation within a session. To restore the seed at any
-time, use the **Reset demo data** button in the footer. It is a POST with a CSRF
-token, so a link or a prefetch can never wipe the session.
+| Table | Holds | Notes |
+|---|---|---|
+| `Member` | One row per member | `Email` is `UNIQUE` (case-insensitive, FR 18); `Member_Status` is `active` or `inactive` (BR 06) |
+| `Item` | One row per title | `Item_Type` picks the subtype; `Is_Deleted` is the soft delete (DR 14) |
+| `Book`, `Music`, `Film`, `Periodical`, `Audiobook` | The descriptive fields for each media type | Keyed on `Item_ID`, as in the ERD |
+| `Copy` | One row per physical copy | `Copy_Status` is `available`, `checked out`, or `missing` (BR 08); `Barcode` is unique |
+
+`Member_ID` and `Item_ID` keep the `M-01045` / `I-04412` form the wireframes
+show, and the seed rows are the same members, items and copies the Phase 1
+pages always had. Accounts, checkouts, fees and payments are Phase 2 tables and
+are not created yet; the loan and fee history on a seeded member's detail page
+is a read-only fixture in `DB/members.php` until then.
+
+Every query lives in `DB/members.php` and `DB/inventory.php` and uses PDO
+prepared statements with `?` placeholders. `DB/db.php` opens the connection the
+Lab 6 way (`ERRMODE_EXCEPTION`, `FETCH_ASSOC`, `PRAGMA foreign_keys = ON`).
+Writes that touch several rows, such as an item plus its copies, run in one
+transaction and roll back completely on any error. The page files call the same
+functions they did in Phase 1, so no view needed rewriting.
+
+To rebuild the database from the SQL file:
+
+```bash
+php DB/setup.php                                  # works anywhere PHP runs
+sqlite3 DB/library.db < DB/setup-database.sql     # Lab 6 command, if sqlite3 is installed
+```
+
+`php DB/setup.php` deletes and recreates the file. The `sqlite3` command only
+adds what is missing, because every `CREATE` is `IF NOT EXISTS` and every seed
+row is `INSERT OR IGNORE`; delete `DB/library.db` first for a clean rebuild.
+
+The **Reset demo data** button in the footer reseeds the member and inventory
+tables. It is a POST with a CSRF token, so a link or a prefetch can never wipe
+the data. Sessions are still used, but only for sign-in, CSRF tokens and flash
+messages; no record data is kept in `$_SESSION` any more.
+
+### Tests
+
+```bash
+php tests/integration-tests.php
+```
+
+The integration tests build a temporary database from `DB/setup-database.sql`
+(they never touch `DB/library.db`) and exercise add, view, update and delete
+for both CRUD sets: member deactivation (BR 06), duplicate email (FR 18), soft
+delete and its refusal while a copy is checked out (BR 07, DR 14), the
+checked-out status rule and invalid copy statuses (BR 08), transaction
+rollback, foreign keys, and reset.
 
 ---
 
@@ -79,10 +134,11 @@ pioneer-public-library/
   index.php                 Home page: hero, catalog search over inventory, media tiles, get started, events (WF 01)
   login.php                 Staff sign-in, POST-only, one generic failure message (WF 02)
   logout.php                Destroys the session (FR 28)
-  reset.php                 Restores the seeded demo tables, POST + CSRF
+  reset.php                 Reseeds the member and inventory tables, POST + CSRF
+  router.php                Router for php -S: blocks DB/, *.db, *.sql, *.md, tests/, traversal
   phase2.php                Placeholder for Employees / Reports / Accounts, which are out of Phase 1 scope
   README.md                 This file
-  .devcontainer/            Codespaces container: PHP 8.3 image, port 8000 forwarded, server auto-started
+  .devcontainer/            Codespaces container: PHP 8.3 image, port 8000 forwarded, server auto-started with router.php
 
   includes/
     header.php              Doctype, head, CSS link, and the site header in public or admin mode
@@ -96,8 +152,12 @@ pioneer-public-library/
     users.php               The two demo accounts. Bcrypt hashes only, no plaintext
 
   DB/
-    members.php             Member table: seed, boot, load/save, find, insert, update, set status, search
-    inventory.php           Inventory table: seed, boot, load/save, find, derived copy counts, insert, update, soft delete, search
+    library.db              The SQLite database, committed already seeded
+    setup-database.sql      Schema (CREATE TABLE IF NOT EXISTS) and seed rows
+    setup.php               CLI: php DB/setup.php rebuilds library.db from the SQL file
+    db.php                  openDatabase() and db(): the PDO connection, plus db_transaction()
+    members.php             Member queries: find, insert, update, set status, search, email check, reset
+    inventory.php           Item, subtype and copy queries: find, derived copy counts, insert, update, soft delete, search, reset
     reference.php           Media types, copy conditions, copy statuses, member statuses
 
   members/
@@ -125,6 +185,9 @@ pioneer-public-library/
 
   js/
     site.js                 data-confirm prompts and the media-type field switch. No inline script anywhere
+
+  tests/
+    integration-tests.php   CLI tests for both CRUD sets on a temporary copy of the database
 ```
 
 ---
@@ -218,14 +281,18 @@ scheduled for Phase 2 and holds no data or action.
 
 Deliberately not built: employee management, the reports dashboard, account and
 role administration, password reset, the class list and signup, returns and
-fines, member profile editing, and any database schema, SQL, PDO, or MySQL work.
+fines, member profile editing, and moving login accounts into the database
+(planned after Lecture 8).
 
 ---
 
 ## Known limits
 
-- Session storage means a second browser, or a cleared cookie, starts from the
-  seed again. That is the Phase 1 design: no database.
+- Everyone using the same running site shares one database, so changes made in
+  one browser are visible in another. Use **Reset demo data** to go back to the
+  seed.
+- Login still uses the two demo accounts in `security/users.php`, not a
+  database table, until the Phase 2 authentication work after Lecture 8.
 - The catalog search on the home page reads the inventory table and shows
   availability, but **Add to cart** leads to the login page because checkout is
   a Phase 2 use case.
