@@ -231,3 +231,5 @@ fines, member profile editing, and any database schema, SQL, PDO, or MySQL work.
   a Phase 2 use case.
 - `php -S` is single-threaded; it is a development server, not a deployment
   target.
+
+AI Disclosure: AI assisted with drafting, organizing, and revising project documentation, diagrams, and code. The team remains responsible for the accuracy, quality, originality, and compliance of the submitted work, including verification of AI-assisted content. Tools Used: ChatGPT, Claude, and xAI.
