@@ -26,7 +26,7 @@
       "visibility": "public"
     }
   },
-  "postStartCommand": "nohup php -S 0.0.0.0:8000 > /tmp/php-server.log 2>&1 &",
-  "postAttachCommand": "php -v",
+  "postStartCommand": "php DB/setup.php --if-missing && (nohup php -S 0.0.0.0:8000 router.php > /tmp/php-server.log 2>&1 &)",
+  "postAttachCommand": "php -v && php -m | grep -i pdo_sqlite",
   "remoteUser": "vscode"
 }

@@ -3,7 +3,7 @@
  * includes/footer.php
  *
  * Closes the page and carries the Reset demo data action, so a marker can put
- * the session tables back to the seed at any time. The reset is a POST with a
+ * the member and inventory tables in DB/library.db back to the seed at any time. The reset is a POST with a
  * CSRF token; it never happens on a plain link. This is the one form on the
  * public pages that lives outside the main content, which is why it is a
  * separate small form rather than part of a page.
@@ -16,7 +16,7 @@ declare(strict_types=1);
   <div class="wrap footer-inner">
     <div class="footer-brand">
       <p class="footer-title">Pioneer Public Library System</p>
-      <p class="footer-note">IS 6465 Web Based Applications · Phase 1 · No database: every record lives in this browser session.</p>
+      <p class="footer-note">IS 6465 Web Based Applications · Phase 1 · Members and inventory are stored in SQLite (DB/library.db).</p>
     </div>
     <form class="footer-reset" action="/reset.php" method="post">
       <?= csrf_field() ?>
@@ -27,7 +27,7 @@ declare(strict_types=1);
     <div class="footer-links">
       <a href="/index.php">Home</a>
       <a href="/login.php">Staff sign in</a>
-      <a href="/README.md">README</a>
+      <a href="https://github.com/cschlawin/pioneer-public-library#readme" rel="noopener">README</a>
     </div>
   </div>
 </footer>
