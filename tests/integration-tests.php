@@ -2,8 +2,8 @@
 /**
  * tests/integration-tests.php
  *
- * CLI integration checks for the two CRUD sets against a throwaway copy of
- * the database:
+ * CLI integration checks for member management, inventory management, and
+ * checkout and return, against a throwaway copy of the database:
  *
  *     php tests/integration-tests.php
  *
@@ -29,6 +29,7 @@ register_shutdown_function(static function () use ($tmp): void {
 
 require_once dirname(__DIR__) . '/DB/members.php';
 require_once dirname(__DIR__) . '/DB/inventory.php';
+require_once dirname(__DIR__) . '/DB/checkouts.php';
 
 $failed = 0;
 $passed = 0;
@@ -164,6 +165,115 @@ check(throws(static fn () => $pdo->exec("INSERT INTO Copy (Item_ID, Copy_Label, 
 inventory_reset();
 check(count(inventory_all()) === 7 && inventory_find('I-05221') === null
     && (int) $pdo->query('SELECT COUNT(*) FROM Copy')->fetchColumn() === 17, 'Reset restores the seeded inventory');
+
+// ---- Set 3: checkout and return (UC 04, UC 06) -----------------------------
+$count = static fn (string $sql): int => (int) $pdo->query($sql)->fetchColumn();
+$copyStatus = static fn (int $id): string => (string) $pdo->query('SELECT Copy_Status FROM Copy WHERE Copy_ID = ' . $id)->fetchColumn();
+$refusedOn = static function (callable $fn, string $field, string $needle): bool {
+    try {
+        $fn();
+        return false;
+    } catch (CheckoutRefused $e) {
+        return $e->field === $field && str_contains($e->getMessage(), $needle);
+    }
+};
+$openMatchesCopies = static fn (): bool => $pdo->query("SELECT Copy_ID FROM Checkout WHERE Check_In_Date IS NULL ORDER BY Copy_ID")
+        ->fetchAll(PDO::FETCH_COLUMN)
+    === $pdo->query("SELECT Copy_ID FROM Copy WHERE Copy_Status = 'checked out' ORDER BY Copy_ID")->fetchAll(PDO::FETCH_COLUMN);
+
+check($count('SELECT COUNT(*) FROM Checkout') === 9 && $count('SELECT COUNT(*) FROM Checkout WHERE Check_In_Date IS NULL') === 5,
+    'Seed: 9 checkouts, 5 open');
+check($openMatchesCopies(), 'Seed: every checked-out copy has exactly one open loan');
+$thaoLoans = checkouts_for_member('M-01045');
+check(count($thaoLoans) === 4 && $thaoLoans[0]['title'] === 'The Overstory' && $thaoLoans[0]['returned'] === null
+    && $thaoLoans[3]['title'] === 'Klara and the Sun' && $thaoLoans[3]['returned'] === '2026-08-11',
+    'WF 05: member history comes from the Checkout table, open loan first');
+check(member_find('M-01045')['checkouts'] === $thaoLoans, 'member_find returns the same loans');
+check(checkout_due_date('2026-11-11') === '2026-12-11' && LOAN_PERIOD_DAYS === 30, 'BR 01: due date is 30 days after checkout');
+check(checkout_from_row(checkout_find('L-00005'), '2026-11-11')['status'] === 'Overdue'
+    && checkout_from_row(checkout_find('L-00005'), '2026-11-11')['days_late'] === 10
+    && checkout_from_row(checkout_find('L-00009'), '2026-11-11')['status'] === 'On loan',
+    'Open loans past due show as Overdue with days late');
+
+$loan = checkout_create('m-01210', '3011100482', 'bsmith', '2026-11-11');
+check($loan['id'] === 'L-00010' && $loan['member_id'] === 'M-01210' && $loan['copy_id'] === 1
+    && $loan['out'] === '2026-11-11' && $loan['due'] === '2026-12-11' && $loan['checkout_by'] === 'bsmith'
+    && $loan['returned'] === null, 'UC 04: checkout writes loan L-00010, due in 30 days, staff recorded');
+check($copyStatus(1) === 'checked out', 'UC 04: copy marked checked out in the same transaction');
+
+$before = $count('SELECT COUNT(*) FROM Checkout');
+check($refusedOn(static fn () => checkout_create('M-00087', '30111 00482', 'bsmith', '2026-11-11'), 'barcode', 'BR 04'),
+    'BR 04: a copy already out is refused');
+check($refusedOn(static fn () => checkout_create('M-00566', '30111 00484', 'bsmith', '2026-11-11'), 'member_id', 'BR 05'),
+    'BR 05: an inactive member is refused');
+check($refusedOn(static fn () => checkout_create('M-99999', '30111 00484', 'bsmith', '2026-11-11'), 'member_id', 'M-99999'),
+    'Unknown member is refused');
+check($refusedOn(static fn () => checkout_create('M-00087', '30111 99999', 'bsmith', '2026-11-11'), 'barcode', 'No copy has the barcode'),
+    'Unknown barcode is refused');
+check($refusedOn(static fn () => checkout_create('M-00087', '30111 00486', 'bsmith', '2026-11-11'), 'barcode', 'Missing'),
+    'A missing copy is refused (only available copies go out)');
+check($refusedOn(static fn () => checkout_create('M-00087', '', 'bsmith', '2026-11-11'), 'barcode', 'Enter the copy barcode'),
+    'Blank barcode is refused');
+member_set_status('M-00312', 'active');
+check($refusedOn(static fn () => checkout_create('M-00312', '30111 00484', 'bsmith', '2026-11-11'), 'member_id', 'BR 03'),
+    'BR 03: unpaid fees at or above $10.00 are refused');
+member_set_status('M-00312', 'inactive');
+$gone = inventory_insert(['media_type' => 'music', 'title' => 'Kind of Blue', 'creator' => 'Miles Davis'], 1);
+inventory_soft_delete($gone['id']);
+check($refusedOn(static fn () => checkout_create('M-00087', $gone['copies'][0]['barcode'], 'bsmith', '2026-11-11'), 'barcode', 'deleted item'),
+    'A copy of a deleted item is refused');
+check($count('SELECT COUNT(*) FROM Checkout') === $before && $copyStatus(3) === 'available', 'Refused checkouts wrote nothing');
+
+$pdo->exec("CREATE TEMP TRIGGER fail_checkout BEFORE UPDATE OF Copy_Status ON Copy WHEN NEW.Copy_Status = 'checked out'
+    BEGIN SELECT RAISE(ABORT, 'simulated failure'); END");
+check(throws(static fn () => checkout_create('M-00087', '30111 00484', 'bsmith', '2026-11-11'), PDOException::class),
+    'Checkout failing on the copy update is refused');
+$pdo->exec('DROP TRIGGER fail_checkout');
+check($count('SELECT COUNT(*) FROM Checkout') === $before && $copyStatus(3) === 'available',
+    'Transaction rollback: no loan left behind without its copy status');
+
+check(throws(static fn () => $pdo->exec("INSERT INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Check_Out_Date, Check_Due_Date)
+    VALUES ('L-09999', 1, 'M-00087', 'bsmith', '2026-11-11', '2026-12-11')"), PDOException::class),
+    'Partial unique index refuses a second open loan on one copy');
+check(throws(static fn () => $pdo->exec("INSERT INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Check_Out_Date, Check_Due_Date)
+    VALUES ('L-09998', 3, 'M-00087', 'bsmith', '2026-11-11', '2026-11-01')"), PDOException::class),
+    'CHECK constraint refuses a due date before the checkout date');
+check(throws(static fn () => $pdo->exec("INSERT INTO Checkout (Check_Num, Copy_ID, Member_ID, Checkout_Emp_ID, Check_Out_Date, Check_Due_Date)
+    VALUES ('L-09997', 3, 'M-99999', 'bsmith', '2026-11-11', '2026-12-11')"), PDOException::class),
+    'Foreign key refuses a loan for an unknown member');
+
+$returned = checkout_return('30111 00482', 'bsmith', '2026-11-20');
+check($returned['id'] === 'L-00010' && $returned['returned'] === '2026-11-20' && $returned['checkin_by'] === 'bsmith'
+    && $returned['days_late'] === 0 && $returned['status'] === 'Returned', 'UC 06: return closes the open loan on time');
+check($copyStatus(1) === 'available', 'UC 06: copy back to available in the same transaction');
+check($refusedOn(static fn () => checkout_return('30111 00482', 'bsmith', '2026-11-20'), 'barcode', 'nothing to return'),
+    'Return refused when the copy has no open loan');
+check($refusedOn(static fn () => checkout_return('30111 99999', 'bsmith', '2026-11-20'), 'barcode', 'No copy has the barcode'),
+    'Return refused for an unknown barcode');
+$late = checkout_return('30111 00483', 'bsmith', '2026-11-11');
+check($late['id'] === 'L-00005' && $late['days_late'] === 10, 'Late return records 10 days late (due 11/01, back 11/11)');
+
+$pdo->exec("CREATE TEMP TRIGGER fail_return BEFORE UPDATE OF Copy_Status ON Copy WHEN NEW.Copy_Status = 'available'
+    BEGIN SELECT RAISE(ABORT, 'simulated failure'); END");
+check(throws(static fn () => checkout_return('30111 00312', 'bsmith', '2026-11-11'), PDOException::class),
+    'Return failing on the copy update is refused');
+$pdo->exec('DROP TRIGGER fail_return');
+check(checkout_find('L-00006')['returned'] === null && $copyStatus(8) === 'checked out',
+    'Transaction rollback: the loan stays open and the copy stays out');
+check($openMatchesCopies(), 'Open loans and checked-out copies still agree');
+
+checkout_create('M-00087', '30111 00550', 'bsmith', '2026-11-11');
+[$ok, $msg] = inventory_soft_delete('I-05102');
+check(!$ok && str_contains($msg, 'checked out'), 'BR 07: an item with a copy on loan cannot be deleted');
+checkout_return('30111 00550', 'bsmith', '2026-11-11');
+
+members_reset();
+check($count('SELECT COUNT(*) FROM Checkout') === 9 && $count('SELECT COUNT(*) FROM Checkout WHERE Check_In_Date IS NULL') === 5
+    && $openMatchesCopies(), 'Member reset restores the seeded loans and copy statuses');
+checkout_create('M-00087', '30111 00484', 'bsmith', '2026-11-11');
+inventory_reset();
+check($count('SELECT COUNT(*) FROM Checkout') === 9 && $openMatchesCopies() && $copyStatus(3) === 'available',
+    'Inventory reset restores the seeded loans and copy statuses');
 
 echo PHP_EOL . "{$passed} passed, {$failed} failed" . PHP_EOL;
 exit($failed > 0 ? 1 : 0);

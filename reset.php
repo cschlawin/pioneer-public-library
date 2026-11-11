@@ -2,8 +2,9 @@
 /**
  * reset.php
  *
- * Reseeds the member and inventory tables in DB/library.db. POST only, with a
- * CSRF token, so a plain link or a prefetch can never wipe the data.
+ * Reseeds the member, inventory and checkout tables in DB/library.db. POST
+ * only, with a CSRF token, so a plain link or a prefetch can never wipe the
+ * data.
  */
 declare(strict_types=1);
 
@@ -27,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 csrf_check();
 members_reset();
 inventory_reset();
-flash_set('success', 'Demo data reset. The seeded members and inventory items are back.');
+flash_set('success', 'Demo data reset. The seeded members, inventory items and checkouts are back.');
 
 $returnTo = post_str('return_to');
 // Only ever redirect to a path on this site.
