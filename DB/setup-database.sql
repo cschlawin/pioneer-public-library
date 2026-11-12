@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS Copy (
     UNIQUE (Item_ID, Copy_Label)
 );
 
+/*
 CREATE INDEX IF NOT EXISTS idx_copy_item ON Copy (Item_ID);
 
 -- Members: the WF 03 / WF 05 seed rows, same IDs as the Phase 1 pages.
@@ -149,3 +150,4 @@ INSERT OR IGNORE INTO Copy (Copy_ID, Item_ID, Copy_Label, Barcode, Copy_Conditio
 INSERT OR IGNORE INTO Item (Item_ID, Item_Type, Item_Condition, Is_Deleted) VALUES ('I-03501', 'book', 'good', 0);
 INSERT OR IGNORE INTO Book (Item_ID, Book_Title, Author_Name, Publisher, Publish_Date, Genre, ISBN) VALUES ('I-03501', 'Severance', 'Ling Ma', 'Farrar, Straus and Giroux', '2018-08-14', 'Literary fiction', '978-0374261597');
 INSERT OR IGNORE INTO Copy (Copy_ID, Item_ID, Copy_Label, Barcode, Copy_Condition, Copy_Status) VALUES (17, 'I-03501', 'C-1', '30111 00601', 'good', 'available');
+*/
